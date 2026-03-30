@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>キャラバン保育 保護者ポータル</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ===== 設定 ===== */
+/* ★ ここにGoogle Apps ScriptのURLを貼り付けてください ★ */
+/* GAS_URL は下のscriptタグ内で設定します */
+
+:root {
+  --bg: #f0f4f8;
+  --surface: #ffffff;
+  --surface2: #f7f9fc;
+  --accent: #10b981;
+  --accent-dark: #059669;
+  --accent2: #3b82f6;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --text: #1e293b;
+  --text2: #64748b;
+  --text3: #94a3b8;
+  --border: #e2e8f0;
+  --radius: 12px;
+  --shadow: 0 2px 16px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 15px;
+}
+
+/* ===== SCREENS ===== */
+.screen { display: none; min-height: 100vh; }
+.screen.active { display: flex; flex-direction: column; }
+
+/* ===== LOGIN ===== */
+#screen-login {
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+  background: linear-gradient(135deg, #ecfdf5 0%, #eff6ff 100%);
+}
+.login-wrap { width: 100%; max-width: 400px; }
+.login-logo { text-align: center; margin-bottom: 32px; }
+.login-logo-icon {
+  font-size: 56px; display: block; margin-bottom: 10px;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+.login-logo h1 { font-size: 22px; font-weight: 900; color: var(--text); }
+.login-logo p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+.login-card {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 28px 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+.login-step-title {
+  font-size: 14px; font-weight: 700; color: var(--text2);
+  text-align: center; margin-bottom: 16px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.step-num {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); color: white;
+  font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* Family grid */
+.family-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
+.family-btn {
+  padding: 14px 8px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px; font-weight: 600;
+  font-family: inherit; cursor: pointer;
+  transition: all 0.15s; text-align: center;
+  line-height: 1.3;
+}
+.family-btn:active { transform: scale(0.97); }
+.family-btn.selected {
+  border-color: var(--accent);
+  background: #ecfdf5;
+  color: var(--accent-dark);
+}
+
+/* PIN pad */
+#pin-section { margin-top: 20px; display: none; }
+.pin-title { font-size: 13px; color: var(--text2); text-align: center; margin-bottom: 10px; }
+.pin-dots {
+  display: flex; justify-content: center; gap: 12px; margin-bottom: 18px;
+}
+.pin-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--border);
+  transition: all 0.15s;
+}
+.pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+.numpad { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.num-btn {
+  padding: 15px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 20px; font-weight: 600;
+  font-family: 'DM Mono', monospace;
+  cursor: pointer; text-align: center;
+  transition: all 0.1s; user-select: none;
+}
+.num-btn:active { background: var(--border); transform: scale(0.95); }
+.num-btn.del { font-size: 14px; color: var(--warn); }
+.num-btn.ok { background: var(--accent); color: white; border-color: var(--accent); font-size: 14px; }
+.num-btn.ok:active { background: var(--accent-dark); }
+.pin-error { color: var(--danger); font-size: 12px; text-align: center; margin-top: 8px; min-height: 18px; }
+
+/* Loading overlay */
+.loading-overlay {
+  position: fixed; inset: 0;
+  background: rgba(255,255,255,0.9);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 999; gap: 12px;
+  font-size: 14px; color: var(--text2);
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-overlay.hidden { display: none; }
+
+/* ===== BOOKING SCREEN ===== */
+#screen-booking { background: var(--bg); }
+
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.app-header-left h2 { font-size: 16px; font-weight: 700; color: var(--accent-dark); }
+.app-header-left p { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.logout-btn {
+  padding: 7px 14px; border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: none; color: var(--text2);
+  font-size: 12px; font-family: inherit;
+  cursor: pointer; transition: all 0.15s;
+}
+.logout-btn:active { background: var(--border); }
+
+.app-body { padding: 20px 16px; max-width: 560px; margin: 0 auto; flex: 1; }
+
+.sec-title {
+  font-size: 12px; font-weight: 700;
+  color: var(--text2); text-transform: uppercase;
+  letter-spacing: 0.1em; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sec-title::before {
+  content: ''; width: 3px; height: 14px;
+  background: var(--accent); border-radius: 2px;
+}
+
+/* Form card */
+.form-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+.form-row { margin-bottom: 14px; }
+.form-row:last-child { margin-bottom: 0; }
+.form-label {
+  display: block; font-size: 12px;
+  font-weight: 600; color: var(--text2);
+  margin-bottom: 6px;
+}
+.form-input, .form-select {
+  width: 100%; padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 15px; font-family: inherit;
+  outline: none; -webkit-appearance: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus, .form-select:focus { border-color: var(--accent); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.price-preview {
+  background: #ecfdf5; border: 1.5px solid #a7f3d0;
+  border-radius: 10px; padding: 12px 16px;
+  font-size: 14px; color: var(--accent-dark);
+  font-weight: 600; margin-bottom: 14px;
+  display: none;
+}
+.price-preview span { font-family: 'DM Mono', monospace; }
+
+.submit-btn {
+  width: 100%; padding: 16px;
+  border-radius: 12px; border: none;
+  background: var(--accent); color: white;
+  font-size: 16px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+}
+.submit-btn:active { background: var(--accent-dark); transform: scale(0.99); }
+.submit-btn:disabled { background: var(--text3); cursor: not-allowed; transform: none; }
+
+/* Reservation list */
+.res-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 12px;
+}
+.res-info {}
+.res-date { font-size: 14px; font-weight: 700; color: var(--text); }
+.res-child { font-size: 12px; color: var(--text2); margin-top: 3px; }
+.res-time { font-size: 12px; color: var(--accent2); margin-top: 2px; }
+.res-right { text-align: right; flex-shrink: 0; }
+.res-price {
+  font-size: 16px; font-weight: 700;
+  color: var(--accent-dark);
+  font-family: 'DM Mono', monospace;
+}
+.res-status {
+  display: inline-block; margin-top: 4px;
+  padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600;
+}
+.status-pending { background: #fef3c7; color: #92400e; }
+.status-confirmed { background: #d1fae5; color: #065f46; }
+.del-btn {
+  display: block; margin-top: 6px;
+  padding: 5px 10px; border-radius: 6px;
+  border: 1.5px solid #fecaca;
+  background: #fef2f2; color: var(--danger);
+  font-size: 11px; font-family: inherit;
+  cursor: pointer;
+}
+.empty-state {
+  text-align: center; padding: 32px 0;
+  color: var(--text3); font-size: 14px;
+}
+.empty-icon { font-size: 36px; display: block; margin-bottom: 8px; }
+
+/* Month tabs */
+.month-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
+.month-tab {
+  padding: 6px 14px; border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text2); font-size: 12px;
+  font-family: inherit; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: all 0.15s; flex-shrink: 0;
+}
+.month-tab.active {
+  background: var(--accent); color: white;
+  border-color: var(--accent);
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px;
+  left: 50%; transform: translateX(-50%);
+  background: var(--text); color: white;
+  padding: 12px 24px; border-radius: 24px;
+  font-size: 13px; font-weight: 600;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  opacity: 0; transition: opacity 0.3s;
+  pointer-events: none; z-index: 9999;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+.toast.success { background: var(--accent-dark); }
+.toast.error { background: var(--danger); }
+
+/* Network status */
+.net-banner {
+  background: #fef3c7; border-bottom: 1px solid #fcd34d;
+  padding: 8px 16px; font-size: 12px;
+  color: #92400e; text-align: center;
+  display: none;
+}
+.net-banner.show { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay hidden" id="loading">
+  <div class="spinner"></div>
+  <span id="loading-msg">読み込み中...</span>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Network banner -->
+<div class="net-banner" id="net-banner">⚠ オフライン中 — インターネット接続を確認してください</div>
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div class="screen active" id="screen-login">
+  <div class="login-wrap">
+    <div class="login-logo">
+      <span class="login-logo-icon">🏠</span>
+      <h1>キャラバン保育</h1>
+      <p>保護者ポータル</p>
+    </div>
+
+    <div class="login-card">
+      <div class="login-step-title">
+        <span class="step-num">1</span> ご家族を選択
+      </div>
+      <div class="family-grid" id="family-grid">
+        <div style="text-align:center;color:var(--text3);font-size:13px;grid-column:1/-1;padding:12px;">読み込み中...</div>
+      </div>
+
+      <div id="pin-section">
+        <div class="login-step-title" style="margin-top:16px;">
+          <span class="step-num">2</span> PINコード入力
+        </div>
+        <div class="pin-title" id="pin-family-name">－</div>
+        <div class="pin-dots" id="pin-dots">
+          <div class="pin-dot" id="dot0"></div>
+          <div class="pin-dot" id="dot1"></div>
+          <div class="pin-dot" id="dot2"></div>
+          <div class="pin-dot" id="dot3"></div>
+        </div>
+        <div class="numpad">
+          <button class="num-btn" onclick="pinInput('1')">1</button>
+          <button class="num-btn" onclick="pinInput('2')">2</button>
+          <button class="num-btn" onclick="pinInput('3')">3</button>
+          <button class="num-btn" onclick="pinInput('4')">4</button>
+          <button class="num-btn" onclick="pinInput('5')">5</button>
+          <button class="num-btn" onclick="pinInput('6')">6</button>
+          <button class="num-btn" onclick="pinInput('7')">7</button>
+          <button class="num-btn" onclick="pinInput('8')">8</button>
+          <button class="num-btn" onclick="pinInput('9')">9</button>
+          <button class="num-btn del" onclick="pinDel()">⌫</button>
+          <button class="num-btn" onclick="pinInput('0')">0</button>
+          <button class="num-btn ok" onclick="pinSubmit()">OK</button>
+        </div>
+        <div class="pin-error" id="pin-error"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== BOOKING SCREEN ===== -->
+<div class="screen" id="screen-booking">
+  <div class="app-header">
+    <div class="app-header-left">
+      <h2 id="header-family-name">－ 家</h2>
+      <p>キャラバン保育 保護者ポータル</p>
+    </div>
+    <button class="logout-btn" onclick="logout()">ログアウト</button>
+  </div>
+
+  <div class="app-body">
+    <!-- 新規予約フォーム -->
+    <div class="sec-title" style="margin-bottom:12px;">新規予約</div>
+    <div class="form-card">
+      <div class="form-row">
+        <label class="form-label">お子さまのお名前</label>
+        <select class="form-select" id="f-child"></select>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label">日付</label>
+        <input type="date" class="form-input" id="f-date">
+      </div>
+
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div>
+          <label class="form-label">開始時間</label>
+          <input type="time" class="form-input" id="f-start" value="08:30">
+        </div>
+        <div>
+          <label class="form-label">お迎え時間</label>
+          <input type="time" class="form-input" id="f-end" value="15:30">
+        </div>
+      </div>
+
+      <div id="mis-row" style="display:none;margin-bottom:14px;">
+        <label class="form-label">料金区分</label>
+        <select class="form-select" id="f-ptype">
+          <option value="normal">通常（200円/時間）</option>
+          <option value="mis">MIS勤務時間（100円/時間）</option>
+        </select>
+      </div>
+
+      <div class="price-preview" id="price-preview">
+        利用時間：<span id="prev-hours">-</span>時間 →
+        1日料金：<span id="prev-price">-</span>円
+      </div>
+
+      <button class="submit-btn" id="submit-btn" onclick="submitReservation()">
+        📅 予約を申請する
+      </button>
+    </div>
+
+    <!-- 予約一覧 -->
+    <div class="sec-title">予約一覧</div>
+    <div class="month-tabs" id="month-tabs"></div>
+    <div id="res-list"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ★★ ここにGoogle Apps ScriptのURLを設定してください ★★
+// ============================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzu-lFWfLvL2WzgtFHhd4qNvloENQgiTeDY0mJcCHlm8jY8-lzizy80AGPvgpJVU9T_/exec';
+// 例: const GAS_URL = 'https://script.google.com/macros/s/AKfycb.../exec';
+// ============================================================
+
+let families = [];
+let loggedInFamily = null;
+let pinBuffer = '';
+let selectedFamId = null;
+let myReservations = [];
+let viewMonth = '';
+
+// ===== 初期化 =====
+window.addEventListener('load', async () => {
+  setViewMonth();
+  await loadFamilies();
+  setupFormListeners();
+  document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+  window.addEventListener('online',  () => document.getElementById('net-banner').classList.remove('show'));
+  window.addEventListener('offline', () => document.getElementById('net-banner').classList.add('show'));
+});
+
+function setViewMonth() {
+  const now = new Date();
+  viewMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+
+// ===== API通信 =====
+async function gasGet(params) {
+  const url = GAS_URL + '?' + new URLSearchParams(params);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('通信エラー');
+  return res.json();
+}
+
+async function gasPost(body) {
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('通信エラー');
+  return res.json();
+}
+
+// ===== 家族データ読み込み =====
+async function loadFamilies() {
+  showLoading('家族データを読み込み中...');
+  try {
+    families = await gasGet({ action: 'getFamilies' });
+    renderFamilyGrid();
+  } catch(e) {
+    showToast('データの読み込みに失敗しました', 'error');
+    // フォールバック: キャッシュから読む
+    const cached = localStorage.getItem('caravan_families');
+    if (cached) families = JSON.parse(cached);
+    renderFamilyGrid();
+  } finally {
+    hideLoading();
+    // キャッシュ更新
+    if (families.length) localStorage.setItem('caravan_families', JSON.stringify(families));
+  }
+}
+
+// ===== ログイン =====
+function renderFamilyGrid() {
+  const grid = document.getElementById('family-grid');
+  if (!families.length) {
+    grid.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:13px;grid-column:1/-1;padding:12px;">データがありません</div>';
+    return;
+  }
+  grid.innerHTML = families.map(f => `
+    <button class="family-btn" id="fbtn-${f.id}" onclick="selectFamily('${f.id}')">
+      ${f.name}
+    </button>
+  `).join('');
+}
+
+function selectFamily(id) {
+  selectedFamId = id;
+  pinBuffer = '';
+  updatePinDots();
+  document.querySelectorAll('.family-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('fbtn-' + id)?.classList.add('selected');
+  const fam = families.find(f => f.id === id);
+  document.getElementById('pin-family-name').textContent = fam?.name + ' 家のPINコード';
+  document.getElementById('pin-section').style.display = 'block';
+  document.getElementById('pin-error').textContent = '';
+}
+
+function pinInput(d) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += d;
+  updatePinDots();
+  if (pinBuffer.length === 4) setTimeout(pinSubmit, 150);
+}
+function pinDel() { pinBuffer = pinBuffer.slice(0,-1); updatePinDots(); }
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('dot' + i)?.classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+function pinSubmit() {
+  const fam = families.find(f => f.id === selectedFamId);
+  if (!fam) return;
+  const correct = fam.pin || '1234';
+  if (pinBuffer === correct) {
+    loggedInFamily = fam;
+    goToBooking();
+  } else {
+    pinBuffer = '';
+    updatePinDots();
+    document.getElementById('pin-error').textContent = 'PINコードが違います';
+    setTimeout(() => { document.getElementById('pin-error').textContent = ''; }, 2000);
+  }
+}
+
+async function goToBooking() {
+  document.getElementById('screen-login').classList.remove('active');
+  document.getElementById('screen-booking').classList.add('active');
+  document.getElementById('header-family-name').textContent = loggedInFamily.name + ' 家';
+
+  // 子どもセレクト
+  const sel = document.getElementById('f-child');
+  sel.innerHTML = loggedInFamily.children.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  // MIS行表示
+  document.getElementById('mis-row').style.display = loggedInFamily.mis ? 'block' : 'none';
+
+  // 予約取得
+  await loadMyReservations();
+  renderMonthTabs();
+  renderResList();
+}
+
+function logout() {
+  loggedInFamily = null; selectedFamId = null; pinBuffer = '';
+  updatePinDots();
+  document.querySelectorAll('.family-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('pin-section').style.display = 'none';
+  document.getElementById('screen-booking').classList.remove('active');
+  document.getElementById('screen-login').classList.add('active');
+}
+
+// ===== 予約 =====
+async function loadMyReservations() {
+  showLoading('予約を読み込み中...');
+  try {
+    const all = await gasGet({ action: 'getReservations' });
+    myReservations = all.filter(r => r.familyId === loggedInFamily.id);
+  } catch(e) {
+    showToast('予約の読み込みに失敗しました', 'error');
+    myReservations = [];
+  } finally {
+    hideLoading();
+  }
+}
+
+function setupFormListeners() {
+  ['f-start','f-end','f-ptype'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', updatePricePreview);
+  });
+}
+
+function calcPrice(start, end, type) {
+  if (!start || !end) return { hours: 0, price: 0 };
+  const [sh,sm] = start.split(':').map(Number);
+  const [eh,em] = end.split(':').map(Number);
+  const mins = (eh*60+em) - (sh*60+sm);
+  if (mins <= 0) return { hours: 0, price: 0 };
+  const hours = Math.ceil(mins / 30) * 0.5;
+  const price = type === 'mis' ? hours * 100 : (hours >= 5 ? 1000 : hours * 200);
+  return { hours, price };
+}
+
+function updatePricePreview() {
+  const start = document.getElementById('f-start').value;
+  const end = document.getElementById('f-end').value;
+  const ptype = document.getElementById('f-ptype')?.value || 'normal';
+  const { hours, price } = calcPrice(start, end, ptype);
+  const prev = document.getElementById('price-preview');
+  if (hours > 0) {
+    prev.style.display = 'block';
+    document.getElementById('prev-hours').textContent = hours;
+    document.getElementById('prev-price').textContent = price.toLocaleString();
+  } else {
+    prev.style.display = 'none';
+  }
+}
+
+async function submitReservation() {
+  const child = document.getElementById('f-child').value;
+  const date = document.getElementById('f-date').value;
+  const start = document.getElementById('f-start').value;
+  const end = document.getElementById('f-end').value;
+  const ptype = loggedInFamily.mis ? (document.getElementById('f-ptype')?.value || 'normal') : 'normal';
+
+  if (!child || !date || !start || !end) { showToast('すべての項目を入力してください', 'error'); return; }
+  if (start >= end) { showToast('終了時間は開始時間より後にしてください', 'error'); return; }
+
+  const { hours, price } = calcPrice(start, end, ptype);
+  const newRes = {
+    id: 'r' + Date.now(),
+    familyId: loggedInFamily.id,
+    childName: child, date, start, end,
+    hours, priceType: ptype, price, status: 'pending'
+  };
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = '送信中...';
+  showLoading('予約を送信中...');
+
+  try {
+    await gasPost({ action: 'addReservation', data: newRes });
+    myReservations.push(newRes);
+    renderMonthTabs();
+    renderResList();
+    // フォームリセット
+    document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('f-start').value = '08:30';
+    document.getElementById('f-end').value = '15:30';
+    if (document.getElementById('f-ptype')) document.getElementById('f-ptype').value = 'normal';
+    document.getElementById('price-preview').style.display = 'none';
+    showToast('✓ 予約を申請しました！', 'success');
+  } catch(e) {
+    showToast('送信に失敗しました。再度お試しください', 'error');
+  } finally {
+    hideLoading();
+    btn.disabled = false;
+    btn.innerHTML = '📅 予約を申請する';
+  }
+}
+
+async function deleteReservation(id) {
+  if (!confirm('この予約を取り消しますか？')) return;
+  showLoading('取り消し中...');
+  try {
+    await gasPost({ action: 'deleteReservation', id });
+    myReservations = myReservations.filter(r => r.id !== id);
+    renderMonthTabs();
+    renderResList();
+    showToast('予約を取り消しました');
+  } catch(e) {
+    showToast('取り消しに失敗しました', 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+// ===== 表示 =====
+function renderMonthTabs() {
+  const months = [...new Set(myReservations.map(r => r.date?.slice(0,7)))].sort().reverse();
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  if (!months.includes(thisMonth)) months.unshift(thisMonth);
+
+  document.getElementById('month-tabs').innerHTML = months.map(m => {
+    const [y,mo] = m.split('-');
+    return `<button class="month-tab ${m === viewMonth ? 'active' : ''}" onclick="switchMonth('${m}')">${y}年${parseInt(mo)}月</button>`;
+  }).join('');
+}
+
+function switchMonth(ym) {
+  viewMonth = ym;
+  renderMonthTabs();
+  renderResList();
+}
+
+function renderResList() {
+  const filtered = myReservations
+    .filter(r => r.date?.startsWith(viewMonth))
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  const list = document.getElementById('res-list');
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state"><span class="empty-icon">📭</span>この月の予約はありません</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(r => {
+    const dow = ['日','月','火','水','木','金','土'][new Date(r.date+'T00:00:00').getDay()];
+    const statusHtml = r.status === 'confirmed'
+      ? '<span class="res-status status-confirmed">確認済</span>'
+      : '<span class="res-status status-pending">申請中</span>';
+    return `
+    <div class="res-card">
+      <div class="res-info">
+        <div class="res-date">${r.date}（${dow}）</div>
+        <div class="res-child">👶 ${r.childName}</div>
+        <div class="res-time">🕐 ${r.start} 〜 ${r.end}（${r.hours}時間）</div>
+        ${statusHtml}
+      </div>
+      <div class="res-right">
+        <div class="res-price">¥${Number(r.price||0).toLocaleString()}</div>
+        ${r.status !== 'confirmed' ? `<button class="del-btn" onclick="deleteReservation('${r.id}')">取消</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== UI helpers =====
+function showLoading(msg = '処理中...') {
+  document.getElementById('loading-msg').textContent = msg;
+  document.getElementById('loading').classList.remove('hidden');
+}
+function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => { t.className = 'toast'; }, 2800);
+}
+</script>
+</body>
+</html>
